@@ -25,6 +25,8 @@ Depois rode também o **`supabase/02_cor_e_aviso_imediato.sql`**, do mesmo jeito
 - a **cor da bolinha** que cada pessoa escolhe;
 - o **aviso imediato**: se alguém se cadastra a poucos dias do aniversário, o e-mail "está chegando" sai na hora. Se o cadastro for no próprio dia, o parabéns vai pro Teams na hora.
 
+E rode o **`supabase/03_aviso_para_quem_chegou_depois.sql`**. Com ele, quem entra no PLuS depois que um aviso já saiu recebe esse aviso só pra ela, desde que o aniversário ainda não tenha chegado. Quem já estava na lista quando o aviso saiu não recebe de novo.
+
 ### E-mail de confirmação com código
 
 O PLuS confirma o e-mail da conta nova com um **código de 6 números**, digitado na própria tela. Assim não depende do link, que dá erro porque o site é aberto como arquivo. Para o código aparecer no e-mail:
