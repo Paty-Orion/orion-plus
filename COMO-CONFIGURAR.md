@@ -21,6 +21,25 @@ Ele não mexe em nada do GPS e pode ser rodado de novo sem problema.
 
 > Se der erro em `pg_cron` ou `pg_net`: vá em **Database → Extensions**, ligue as duas e rode de novo.
 
+Depois rode também o **`supabase/02_cor_e_aviso_imediato.sql`**, do mesmo jeito. Ele acrescenta:
+- a **cor da bolinha** que cada pessoa escolhe;
+- o **aviso imediato**: se alguém se cadastra a poucos dias do aniversário, o e-mail "está chegando" sai na hora. Se o cadastro for no próprio dia, o parabéns vai pro Teams na hora.
+
+### E-mail de confirmação com código
+
+O PLuS confirma o e-mail da conta nova com um **código de 6 números**, digitado na própria tela. Assim não depende do link, que dá erro porque o site é aberto como arquivo. Para o código aparecer no e-mail:
+
+1. No Supabase, vá em **Authentication → Emails → Confirm signup**.
+2. Troque o **Body** pelo texto abaixo e salve. O link continua lá, pra quem cria conta pelo GPS.
+
+```html
+<h2>Confirme seu e-mail 🎈</h2>
+<p>Seu código de confirmação é:</p>
+<p style="font-size:30px;font-weight:bold;letter-spacing:6px;">{{ .Token }}</p>
+<p>Digite esse código na tela do <b>Orion PLuS</b>.</p>
+<p style="font-size:12px;color:#888;">Criando conta pelo GPS Orion? Use este link: <a href="{{ .ConfirmationURL }}">confirmar e-mail</a>.</p>
+```
+
 ## Passo 2: publicar o site
 
 A sugestão é criar um repositório novo no **mesmo GitHub do GPS** (`sarahoriontr`), por exemplo `orion-plus`. Depois é só subir o `index.html` e ligar o GitHub Pages.

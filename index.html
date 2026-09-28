@@ -178,6 +178,32 @@ textarea{resize:vertical;min-height:64px;}
 .foto-preview img{width:100%;height:100%;object-fit:cover;display:block;}
 .foto-preview.tem-foto{border:3px solid var(--festa-rosa);}
 .foto-field .foto-info{font-size:12px;color:var(--muted);}
+/* Bolinha colorida atrás da prévia (a cor que a pessoa escolheu) */
+.foto-preview-wrap{position:relative;width:84px;height:84px;flex-shrink:0;}
+.foto-preview-wrap::before{
+  content:"";position:absolute;inset:0;border-radius:50%;background:var(--cor, transparent);
+  transform:translate(16%,9%);
+}
+.foto-preview-wrap .foto-preview{position:relative;}
+
+/* Escolha da cor da bolinha */
+.cores{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;}
+.cor-btn{
+  width:32px;height:32px;border-radius:50%;border:3px solid var(--card);cursor:pointer;padding:0;
+  box-shadow:0 0 0 1.5px var(--border);transition:transform .1s;
+}
+.cor-btn:hover{transform:scale(1.1);}
+.cor-btn.ativo{box-shadow:0 0 0 3px var(--text);}
+
+/* Editor de foto (arrastar + zoom) */
+.recorte-area{
+  width:min(300px,100%);aspect-ratio:1;margin:6px auto 0;border-radius:14px;overflow:hidden;
+  background:#1a0d14;touch-action:none;cursor:grab;
+}
+.recorte-area.arrastando{cursor:grabbing;}
+.recorte-area canvas{width:100%;height:100%;display:block;}
+.recorte-zoom{display:flex;align-items:center;gap:10px;max-width:300px;margin:14px auto 0;font-size:18px;}
+.recorte-zoom input{flex:1;accent-color:var(--brand-pink);}
 .foto-field input[type=file]{display:none;}
 .check-line{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--muted);margin-top:14px;font-weight:500;}
 .check-line input{margin-top:3px;flex-shrink:0;accent-color:var(--brand-pink);}
@@ -441,10 +467,7 @@ footer .footer-copy{margin-top:14px;padding-top:10px;border-top:1px solid rgba(2
           <button type="button" class="password-toggle" data-alvo="loginSenha" tabindex="-1" title="Mostrar/ocultar senha">👁</button>
         </div>
         <div class="status-line" id="loginStatusMsg"></div>
-        <div class="actions">
-          <button class="btn" type="submit" id="loginEntrarBtn">Entrar 🎈</button>
-          <button class="btn secondary tiny oculto" type="button" id="reenviarConfirmacaoBtn">📧 Reenviar confirmação</button>
-        </div>
+        <div class="actions"><button class="btn" type="submit" id="loginEntrarBtn">Entrar 🎈</button></div>
         <p class="hint" style="margin:14px 0 0;">Ainda não tem conta? <a href="#" id="loginMostrarCadastro">Criar conta</a></p>
       </form>
 
@@ -460,9 +483,10 @@ footer .footer-copy{margin-top:14px;padding-top:10px;border-top:1px solid rgba(2
         </div>
         <label>Sua foto <span class="req-mark">*</span></label>
         <div class="foto-field">
-          <div class="foto-preview" id="cadastroFotoPreview" title="Escolher foto">📷</div>
+          <div class="foto-preview-wrap"><div class="foto-preview" id="cadastroFotoPreview" title="Escolher foto">📷</div></div>
           <div>
             <button type="button" class="btn secondary tiny" id="cadastroFotoBtn">Escolher foto</button>
+            <button type="button" class="btn secondary tiny oculto" id="cadastroAjustarBtn">✂️ Ajustar</button>
             <div class="foto-info">Foto de rosto, de preferência. JPG ou PNG.</div>
           </div>
           <input type="file" id="cadastroFotoInput" accept="image/jpeg,image/png,image/webp">
@@ -476,6 +500,20 @@ footer .footer-copy{margin-top:14px;padding-top:10px;border-top:1px solid rgba(2
         <div class="status-line" id="cadastroStatusMsg"></div>
         <div class="actions"><button class="btn" type="submit" id="cadastroCriarBtn">Criar conta 🎉</button></div>
         <p class="hint" style="margin:14px 0 0;">Já tem conta (inclusive do GPS)? <a href="#" id="loginMostrarEntrar">Entrar</a></p>
+      </form>
+
+      <!-- Confirmação por código: evita o link do e-mail, que tenta abrir um
+           site (e dá erro, já que o PLuS é aberto como arquivo). -->
+      <form id="codigoForm" class="oculto">
+        <p class="hint">📧 Enviamos um <b>código de confirmação</b> para <b id="codigoEmail"></b>. Digite ele aqui:</p>
+        <label>Código <span class="req-mark">*</span></label>
+        <input type="text" id="codigoInput" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456" style="font-size:22px;letter-spacing:6px;text-align:center;">
+        <div class="status-line" id="codigoStatus"></div>
+        <div class="actions">
+          <button class="btn" type="submit" id="codigoConfirmarBtn">Confirmar e-mail ✅</button>
+          <button class="btn secondary tiny" type="button" id="codigoReenviarBtn">Reenviar código</button>
+        </div>
+        <p class="hint" style="margin:14px 0 0;">Clicou no link do e-mail em vez de usar o código? Tudo bem, ele também confirma. É só <a href="#" id="codigoVoltarLogin">entrar</a>.</p>
       </form>
     </div>
   </div>
@@ -500,13 +538,16 @@ footer .footer-copy{margin-top:14px;padding-top:10px;border-top:1px solid rgba(2
     </div>
     <label>Foto <span class="req-mark" id="perfilFotoReq">*</span></label>
     <div class="foto-field">
-      <div class="foto-preview" id="perfilFotoPreview" title="Escolher foto">📷</div>
+      <div class="foto-preview-wrap" id="perfilFotoWrap"><div class="foto-preview" id="perfilFotoPreview" title="Escolher foto">📷</div></div>
       <div>
         <button type="button" class="btn secondary tiny" id="perfilFotoBtn">Escolher foto</button>
+        <button type="button" class="btn secondary tiny oculto" id="perfilAjustarBtn">✂️ Ajustar</button>
         <div class="foto-info" id="perfilFotoInfo">Foto de rosto, de preferência. JPG ou PNG.</div>
       </div>
       <input type="file" id="perfilFotoInput" accept="image/jpeg,image/png,image/webp">
     </div>
+    <label>Cor da bolinha atrás da sua foto 🎨</label>
+    <div class="cores" id="perfilCores"></div>
     <label>Aniversário (dia e mês) <span class="req-mark">*</span></label>
     <div class="row2">
       <select id="perfilDia"><option value="">Dia</option></select>
@@ -524,11 +565,31 @@ footer .footer-copy{margin-top:14px;padding-top:10px;border-top:1px solid rgba(2
   </div>
 </div>
 
+<!-- =================== MODAL: AJUSTAR FOTO =================== -->
+<div class="modal-overlay" id="recorteOverlay" style="z-index:1200;">
+  <div class="card modal-card" style="max-width:380px;">
+    <h2>✂️ Ajuste sua foto</h2>
+    <p class="hint">Arraste a foto pra posicionar dentro do círculo e use o controle pra aproximar.</p>
+    <div class="recorte-area" id="recorteArea"><canvas id="recorteCanvas" width="600" height="600"></canvas></div>
+    <div class="recorte-zoom"><span>➖</span><input type="range" id="recorteZoom" min="1" max="4" step="0.01" value="1" aria-label="Zoom"><span>➕</span></div>
+    <div class="actions" style="justify-content:center;">
+      <button class="btn" type="button" id="recorteUsarBtn">Usar esta foto ✅</button>
+      <button class="btn secondary" type="button" id="recorteCancelarBtn">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- =================== MODAL: CARTAZ DO MÊS =================== -->
 <div class="modal-overlay" id="cartazOverlay">
   <div class="card modal-card largo">
     <h2>🖼️ Cartaz do mês</h2>
     <p class="hint">Prontinho pra postar no Teams, mandar por e-mail ou imprimir em A4.</p>
+    <label style="margin-top:0;">Título do cartaz</label>
+    <select id="cartazTitulo" style="max-width:280px;margin-bottom:12px;">
+      <option value="ANIVERSARIANTES">ANIVERSARIANTES</option>
+      <option value="FELIZ ANIVERSÁRIO">FELIZ ANIVERSÁRIO</option>
+      <option value="PARABÉNS!">PARABÉNS!</option>
+    </select>
     <div id="cartazPreviewWrap" style="text-align:center;"><p class="hint">Gerando...</p></div>
     <div class="actions">
       <button class="btn" type="button" id="cartazBaixarBtn" disabled>⬇️ Baixar PNG</button>
@@ -721,6 +782,18 @@ const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julh
 const SEMANA_CURTA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const CORES_FESTA = ['#f06292', '#ffca28', '#26c6da', '#9575cd', '#ff7043'];
 const CORES_TEXTO = ['#d81b60', '#e0a100', '#1aa3b5', '#7e57c2', '#f4511e'];
+// Cores que a pessoa pode escolher pra bolinha atrás da foto. "txt" é o
+// tom mais escuro da MESMA cor, usado no nome (site e cartaz) pra ler bem.
+const CORES_BOLINHA = [
+  { nome: 'Rosa', cor: '#f06292', txt: '#d81b60' },
+  { nome: 'Amarelo', cor: '#ffca28', txt: '#d99a00' },
+  { nome: 'Turquesa', cor: '#26c6da', txt: '#0f9fb3' },
+  { nome: 'Lilás', cor: '#9575cd', txt: '#7446c2' },
+  { nome: 'Laranja', cor: '#ff7043', txt: '#f4511e' },
+  { nome: 'Verde', cor: '#66bb6a', txt: '#388e3c' },
+  { nome: 'Azul', cor: '#42a5f5', txt: '#1e7fd8' },
+  { nome: 'Vermelho', cor: '#ef5350', txt: '#d32f2f' },
+];
 const DIAS_NO_MES = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 const BUCKET_FOTOS = 'plus-fotos';
 const CADASTRO_PENDENTE_KEY = 'orionPlus.cadastroPendente.v1';
@@ -766,6 +839,13 @@ function indiceCor(p) {
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
   return h % CORES_FESTA.length;
 }
+// Cor da bolinha: a escolhida pela pessoa, ou uma fixa sorteada pelo id.
+function corDaPessoa(p) { return (p && p.cor) || corDe(indiceCor(p)); }
+function corTextoDaCor(cor) {
+  const c = CORES_BOLINHA.find((x) => x.cor.toLowerCase() === String(cor || '').toLowerCase());
+  return c ? c.txt : '#d81b60';
+}
+function corTextoPessoa(p) { return corTextoDaCor(corDaPessoa(p)); }
 
 /* ---------- Datas (só dia e mês; 29/02 comemora em 28/02 no ano não bissexto) ---------- */
 function ehBissexto(a) { return (a % 4 === 0 && a % 100 !== 0) || a % 400 === 0; }
@@ -803,11 +883,25 @@ function carregarImagem(src) {
     img.src = src;
   });
 }
-async function prepararFoto(file) {
+// "data:image/jpeg;base64,..." -> Blob, sem fetch (fetch de data: URL pode
+// travar dependendo de como a página foi aberta).
+function dataUrlParaBlob(dataUrl) {
+  const [cab, dados] = String(dataUrl).split(',');
+  const mime = (cab.match(/data:([^;]+)/) || [])[1] || 'image/jpeg';
+  const bin = atob(dados || '');
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+function validarArquivoFoto(file) {
   if (!file) throw new Error('Nenhuma foto escolhida.');
   if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) {
     throw new Error('Formato não suportado. Use uma foto JPG ou PNG (foto de iPhone em HEIC: exporte como JPG antes).');
   }
+}
+// Recorte automático (usado na importação em massa das fotos antigas).
+async function prepararFoto(file) {
+  validarArquivoFoto(file);
   const url = URL.createObjectURL(file);
   try {
     const img = await carregarImagem(url);
@@ -819,7 +913,7 @@ async function prepararFoto(file) {
     c.width = tam; c.height = tam;
     c.getContext('2d').drawImage(img, sx, sy, lado, lado, 0, 0, tam, tam);
     const dataUrl = c.toDataURL('image/jpeg', 0.86);
-    const blob = await (await fetch(dataUrl)).blob();
+    const blob = dataUrlParaBlob(dataUrl);
     return { blob, dataUrl };
   } finally {
     URL.revokeObjectURL(url);
@@ -836,7 +930,7 @@ function fotoUrl(p) {
   return avatarIniciais(p.nome, corDe(indiceCor(p)));
 }
 function fotoAnelHtml(p, extraStyle) {
-  return `<div class="foto-anel" style="--cor:${corDe(indiceCor(p))};${extraStyle || ''}"><img src="${escapeHtml(fotoUrl(p))}" alt="${escapeHtml(p.nome)}" loading="lazy"></div>`;
+  return `<div class="foto-anel" style="--cor:${corDaPessoa(p)};${extraStyle || ''}"><img src="${escapeHtml(fotoUrl(p))}" alt="${escapeHtml(p.nome)}" loading="lazy"></div>`;
 }
 async function enviarFoto(blob) {
   const id = (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
@@ -849,24 +943,142 @@ async function apagarFoto(path) {
   if (!path || !sbClient) return;
   try { await sbClient.storage.from(BUCKET_FOTOS).remove([path]); } catch (e) { /* sobra um arquivo órfão, sem problema */ }
 }
-// Liga um "campo de foto" (círculo de prévia + botão + input escondido).
-function ligarCampoFoto(previewId, btnId, inputId, aoEscolher) {
-  const prev = $(previewId), input = $(inputId);
+/* ---------- Editor de foto: arrastar pra posicionar + zoom ----------
+   O canvas tem 600x600 "pixels internos" (mostrado em 300px na tela, fica
+   nítido em celular). A imagem sempre cobre o quadrado todo — não dá pra
+   arrastar a ponto de sobrar borda vazia. O que fica dentro do círculo é
+   exatamente o que aparece no site e no cartaz. */
+const recorte = { img: null, zoom: 1, px: 0, py: 0, resolver: null };
+const RECORTE_S = 600;
+function recorteEscala() {
+  const r = recorte;
+  return (RECORTE_S / Math.min(r.img.naturalWidth, r.img.naturalHeight)) * r.zoom;
+}
+function recorteLimitar() {
+  const r = recorte, esc = recorteEscala();
+  const maxX = Math.max(0, (r.img.naturalWidth * esc - RECORTE_S) / 2);
+  const maxY = Math.max(0, (r.img.naturalHeight * esc - RECORTE_S) / 2);
+  r.px = Math.max(-maxX, Math.min(maxX, r.px));
+  r.py = Math.max(-maxY, Math.min(maxY, r.py));
+}
+function recorteDesenharEm(ctx, tamanho) {
+  const r = recorte, esc = recorteEscala(), k = tamanho / RECORTE_S;
+  const w = r.img.naturalWidth * esc * k, h = r.img.naturalHeight * esc * k;
+  ctx.drawImage(r.img, tamanho / 2 - w / 2 + r.px * k, tamanho / 2 - h / 2 + r.py * k, w, h);
+}
+function recorteDesenhar() {
+  const ctx = $('recorteCanvas').getContext('2d');
+  const S = RECORTE_S;
+  ctx.clearRect(0, 0, S, S);
+  recorteDesenharEm(ctx, S);
+  // Escurece fora do círculo pra mostrar o que vai aparecer
+  ctx.save();
+  ctx.fillStyle = 'rgba(20,6,14,.55)';
+  ctx.beginPath(); ctx.rect(0, 0, S, S); ctx.arc(S / 2, S / 2, S / 2 - 14, 0, Math.PI * 2, true); ctx.fill();
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(S / 2, S / 2, S / 2 - 14, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+}
+// Abre o editor com uma imagem (src = URL do arquivo escolhido). Devolve
+// {blob, dataUrl} com o quadrado 512x512 recortado, ou null se cancelar.
+async function abrirRecorte(src) {
+  const img = await carregarImagem(src);
+  recorte.img = img;
+  recorte.zoom = 1;
+  recorte.px = 0;
+  // Foto em pé: começa mostrando mais a parte de cima (onde fica o rosto)
+  recorte.py = 0;
+  recorteLimitar();
+  const maxY = Math.max(0, (img.naturalHeight * recorteEscala() - RECORTE_S) / 2);
+  recorte.py = maxY * 0.4;
+  $('recorteZoom').value = '1';
+  recorteDesenhar();
+  $('recorteOverlay').classList.add('aberto');
+  return new Promise((resolve) => { recorte.resolver = resolve; });
+}
+function fecharRecorte(resultado) {
+  $('recorteOverlay').classList.remove('aberto');
+  const resolver = recorte.resolver;
+  recorte.resolver = null;
+  if (resolver) resolver(resultado);
+}
+function ligarRecorte() {
+  const area = $('recorteArea');
+  let arrasto = null;
+  area.addEventListener('pointerdown', (e) => {
+    if (!recorte.img) return;
+    arrasto = { x: e.clientX, y: e.clientY };
+    area.setPointerCapture(e.pointerId);
+    area.classList.add('arrastando');
+  });
+  area.addEventListener('pointermove', (e) => {
+    if (!arrasto) return;
+    const k = RECORTE_S / area.clientWidth;
+    recorte.px += (e.clientX - arrasto.x) * k;
+    recorte.py += (e.clientY - arrasto.y) * k;
+    arrasto = { x: e.clientX, y: e.clientY };
+    recorteLimitar();
+    recorteDesenhar();
+  });
+  const soltar = () => { arrasto = null; area.classList.remove('arrastando'); };
+  area.addEventListener('pointerup', soltar);
+  area.addEventListener('pointercancel', soltar);
+  area.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const z = Math.max(1, Math.min(4, recorte.zoom * (e.deltaY < 0 ? 1.08 : 1 / 1.08)));
+    recorte.zoom = z;
+    $('recorteZoom').value = String(z);
+    recorteLimitar();
+    recorteDesenhar();
+  }, { passive: false });
+  $('recorteZoom').addEventListener('input', () => {
+    recorte.zoom = Number($('recorteZoom').value);
+    recorteLimitar();
+    recorteDesenhar();
+  });
+  $('recorteUsarBtn').addEventListener('click', async () => {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 512;
+    recorteDesenharEm(c.getContext('2d'), 512);
+    const dataUrl = c.toDataURL('image/jpeg', 0.88);
+    const blob = dataUrlParaBlob(dataUrl);
+    fecharRecorte({ blob, dataUrl });
+  });
+  $('recorteCancelarBtn').addEventListener('click', () => fecharRecorte(null));
+}
+
+// Liga um "campo de foto" (círculo de prévia + botões + input escondido).
+// Toda foto escolhida passa pelo editor; "✂️ Ajustar" reabre o editor com
+// a foto ORIGINAL (não a já recortada), pra poder afastar de novo.
+function ligarCampoFoto(previewId, btnId, inputId, ajustarId, aoEscolher) {
+  const prev = $(previewId), input = $(inputId), ajustar = $(ajustarId);
+  let original = null; // URL do arquivo original escolhido
   const abrir = () => input.click();
   prev.addEventListener('click', abrir);
   $(btnId).addEventListener('click', abrir);
-  input.addEventListener('change', async () => {
-    const file = input.files && input.files[0];
-    input.value = '';
-    if (!file) return;
+  async function editar() {
     try {
-      const foto = await prepararFoto(file);
+      const foto = await abrirRecorte(original);
+      if (!foto) return;
       mostrarPreviewFoto(previewId, foto.dataUrl);
+      ajustar.classList.remove('oculto');
       aoEscolher(foto, null);
     } catch (e) {
       aoEscolher(null, e.message);
     }
+  }
+  input.addEventListener('change', async () => {
+    const file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+    try { validarArquivoFoto(file); } catch (e) { aoEscolher(null, e.message); return; }
+    if (original) URL.revokeObjectURL(original);
+    original = URL.createObjectURL(file);
+    await editar();
   });
+  ajustar.addEventListener('click', editar);
+  // Chamado quando o formulário reabre com outra pessoa/foto
+  return { limpar() { if (original) URL.revokeObjectURL(original); original = null; ajustar.classList.add('oculto'); } };
 }
 function mostrarPreviewFoto(previewId, src) {
   const prev = $(previewId);
@@ -938,6 +1150,18 @@ function mostrarTela(qual) {
   $('loginCarregandoMsg').classList.toggle('oculto', qual !== 'carregando');
   $('loginForm').classList.toggle('oculto', qual !== 'login');
   $('cadastroForm').classList.toggle('oculto', qual !== 'cadastro');
+  $('codigoForm').classList.toggle('oculto', qual !== 'codigo');
+}
+// Guarda e-mail/senha só na memória, enquanto a tela do código está aberta
+// (pra entrar direto depois de confirmar). Nada disso é salvo.
+let codigoCtx = null;
+function mostrarTelaCodigo(email, senha, msg) {
+  codigoCtx = { email, senha };
+  $('codigoEmail').textContent = email;
+  $('codigoInput').value = '';
+  setStatus('codigoStatus', msg || '', msg ? 'ok' : '');
+  mostrarTela('codigo');
+  $('codigoInput').focus();
 }
 
 let cadastroFoto = null;
@@ -968,7 +1192,7 @@ function iniciarAutenticacao() {
   $('loginMostrarEntrar').addEventListener('click', (e) => { e.preventDefault(); mostrarTela('login'); });
 
   preencherSelectsData($('cadastroDia'), $('cadastroMes'));
-  ligarCampoFoto('cadastroFotoPreview', 'cadastroFotoBtn', 'cadastroFotoInput', (foto, erro) => {
+  ligarCampoFoto('cadastroFotoPreview', 'cadastroFotoBtn', 'cadastroFotoInput', 'cadastroAjustarBtn', (foto, erro) => {
     if (erro) { setStatus('cadastroStatusMsg', erro, 'erro'); return; }
     cadastroFoto = foto;
     setStatus('cadastroStatusMsg', '');
@@ -982,11 +1206,12 @@ function iniciarAutenticacao() {
     $('loginEntrarBtn').disabled = true;
     const { data, error } = await sbClient.auth.signInWithPassword({ email, password: senha });
     $('loginEntrarBtn').disabled = false;
-    $('reenviarConfirmacaoBtn').classList.add('oculto');
     if (error) {
-      const naoConfirmado = /confirm/i.test(error.message || '');
-      setStatus('loginStatusMsg', naoConfirmado ? 'Seu e-mail ainda não foi confirmado. Clique abaixo pra receber um link novo — e clique nele só uma vez.' : 'E-mail ou senha incorretos.', 'erro');
-      if (naoConfirmado) $('reenviarConfirmacaoBtn').classList.remove('oculto');
+      if (/confirm/i.test(error.message || '')) {
+        mostrarTelaCodigo(email, senha, 'Seu e-mail ainda não foi confirmado. Use o código do e-mail de cadastro, ou clique em "Reenviar código".');
+        return;
+      }
+      setStatus('loginStatusMsg', 'E-mail ou senha incorretos.', 'erro');
       return;
     }
     setStatus('loginStatusMsg', '');
@@ -1023,17 +1248,49 @@ function iniciarAutenticacao() {
       setStatus('cadastroStatusMsg', '');
       await liberarApp(data.user);
     } else {
-      setStatus('cadastroStatusMsg', 'Conta criada! 🎉 Confira seu e-mail (' + email + ') e clique no link de confirmação. Se abrir uma página de erro, tudo bem: a conta já fica confirmada. Volte aqui e clique em "Entrar". Sua foto e data ficaram guardadas neste computador.', 'ok');
+      setStatus('cadastroStatusMsg', '');
+      mostrarTelaCodigo(email, senha, 'Conta criada! 🎉 Sua foto e data já ficaram guardadas.');
     }
   });
 
-  $('reenviarConfirmacaoBtn').addEventListener('click', async () => {
-    const email = $('loginEmail').value.trim();
-    $('reenviarConfirmacaoBtn').disabled = true;
-    const { error } = await sbClient.auth.resend({ type: 'signup', email });
-    $('reenviarConfirmacaoBtn').disabled = false;
-    if (error) { setStatus('loginStatusMsg', 'Não consegui reenviar: ' + error.message, 'erro'); return; }
-    setStatus('loginStatusMsg', 'Link novo enviado pra ' + email + '. Depois de clicar nele (mesmo que abra uma página de erro), volte aqui e entre.', 'ok');
+  $('codigoForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const ctx = codigoCtx;
+    const token = $('codigoInput').value.replace(/\D/g, '');
+    if (!ctx) { mostrarTela('login'); return; }
+    if (token.length < 6) { setStatus('codigoStatus', 'Digite o código que chegou no e-mail (6 números).', 'erro'); return; }
+    $('codigoConfirmarBtn').disabled = true;
+    setStatus('codigoStatus', 'Confirmando...');
+    let res = await sbClient.auth.verifyOtp({ email: ctx.email, token, type: 'signup' });
+    if (res.error) res = await sbClient.auth.verifyOtp({ email: ctx.email, token, type: 'email' });
+    let user = res.data && res.data.session ? res.data.user : null;
+    if (!user && ctx.senha) {
+      // O código pode ter "vencido" porque o link do mesmo e-mail já foi
+      // aberto (por você ou pelo antivírus do Outlook) — nesse caso a conta
+      // já está confirmada e dá pra entrar direto.
+      const login = await sbClient.auth.signInWithPassword({ email: ctx.email, password: ctx.senha });
+      if (!login.error) user = login.data.user;
+    }
+    $('codigoConfirmarBtn').disabled = false;
+    if (!user) { setStatus('codigoStatus', 'Código inválido ou vencido. Clique em "Reenviar código" e use o mais novo.', 'erro'); return; }
+    codigoCtx = null;
+    setStatus('codigoStatus', 'E-mail confirmado ✅', 'ok');
+    toast('E-mail confirmado ✅');
+    await liberarApp(user);
+  });
+  $('codigoReenviarBtn').addEventListener('click', async () => {
+    if (!codigoCtx) return;
+    $('codigoReenviarBtn').disabled = true;
+    const { error } = await sbClient.auth.resend({ type: 'signup', email: codigoCtx.email });
+    $('codigoReenviarBtn').disabled = false;
+    if (error) { setStatus('codigoStatus', 'Não consegui reenviar: ' + error.message, 'erro'); return; }
+    setStatus('codigoStatus', 'Código novo enviado pra ' + codigoCtx.email + ' 📧 (use sempre o mais recente).', 'ok');
+  });
+  $('codigoVoltarLogin').addEventListener('click', (e) => {
+    e.preventDefault();
+    if (codigoCtx) $('loginEmail').value = codigoCtx.email;
+    codigoCtx = null;
+    mostrarTela('login');
   });
 
   $('sairBtn').addEventListener('click', sair);
@@ -1115,7 +1372,7 @@ async function cadastroObrigatorio() {
   const nomeSugerido = (pend && pend.nome) || (meuRegistro && meuRegistro.nome) || nomeConta || nomeDoEmail(usuarioAtual.email);
   if (pend && !meuRegistro && candidatosReivindicar(nomeSugerido).length === 0) {
     try {
-      const blob = await (await fetch(pend.fotoDataUrl)).blob();
+      const blob = dataUrlParaBlob(pend.fotoDataUrl);
       const foto_path = await enviarFoto(blob);
       const { error } = await sbClient.from('plus_aniversariantes').insert({
         user_id: usuarioAtual.id, nome: pend.nome, email: usuarioAtual.email.toLowerCase(),
@@ -1141,6 +1398,17 @@ async function cadastroObrigatorio() {
    e (administrador) adicionar/editar qualquer pessoa.
    ============================================================ */
 let perfilCtx = null;
+let perfilFotoCampo = null;
+// Bolinhas de cor pra escolher + a prévia da foto já com a cor escolhida
+// atrás (e o nome de exemplo na cor do texto que vai aparecer no cartaz).
+function renderCoresPerfil() {
+  const atual = perfilCtx ? String(perfilCtx.cor || '').toLowerCase() : '';
+  $('perfilCores').innerHTML = CORES_BOLINHA.map((c) =>
+    `<button type="button" class="cor-btn ${c.cor.toLowerCase() === atual ? 'ativo' : ''}" data-cor="${c.cor}" style="background:${c.cor}" title="${c.nome}" aria-label="${c.nome}"></button>`
+  ).join('') + `<span id="perfilCorAmostra" style="align-self:center;margin-left:6px;font-family:var(--font-festa);font-weight:700;font-size:17px;text-transform:uppercase;color:${corTextoDaCor(atual)}">${escapeHtml(primeiroNomeExibicao($('perfilNome').value) || 'Seu nome')}</span>`;
+  $('perfilFotoWrap').style.setProperty('--cor', atual || 'transparent');
+}
+function primeiroNomeExibicao(s) { return String(s || '').trim().split(/\s+/)[0] || ''; }
 function candidatosReivindicar(nome) {
   const pn = primeiroNome(nome);
   if (!pn) return [];
@@ -1175,14 +1443,17 @@ function abrirPerfil(ctx) {
   setStatus('perfilStatus', '');
 
   if (ctx.pendente && ctx.pendente.fotoDataUrl && !(r && r.foto_path)) {
-    fetch(ctx.pendente.fotoDataUrl).then((x) => x.blob()).then((blob) => { perfilCtx.fotoNova = { blob, dataUrl: ctx.pendente.fotoDataUrl }; });
+    perfilCtx.fotoNova = { blob: dataUrlParaBlob(ctx.pendente.fotoDataUrl), dataUrl: ctx.pendente.fotoDataUrl };
     mostrarPreviewFoto('perfilFotoPreview', ctx.pendente.fotoDataUrl);
   } else {
     mostrarPreviewFoto('perfilFotoPreview', r && r.foto_path ? fotoUrl(r) : null);
   }
   $('perfilFotoReq').classList.toggle('oculto', !!(r && r.foto_path));
   $('perfilFotoInfo').textContent = r && r.foto_path ? 'Clique na foto pra trocar.' : 'Foto de rosto, de preferência. JPG ou PNG.';
+  if (perfilFotoCampo) perfilFotoCampo.limpar();
 
+  perfilCtx.cor = (r && r.cor) || (r ? corDaPessoa(r) : CORES_BOLINHA[0].cor);
+  renderCoresPerfil();
   renderSugestoes();
   $('perfilOverlay').classList.add('aberto');
 }
@@ -1239,14 +1510,23 @@ async function salvarPerfil() {
     let foto_path = r ? r.foto_path : null;
     const fotoAntiga = foto_path;
     if (ctx.fotoNova) foto_path = await enviarFoto(ctx.fotoNova.blob);
-    const payload = { nome, dia, mes, foto_path, atualizado_em: new Date().toISOString() };
+    const payload = { nome, dia, mes, foto_path, cor: ctx.cor || null, atualizado_em: new Date().toISOString() };
     if (ehAdminEdicao) { payload.email = email || null; payload.ativo = $('perfilAtivo').checked; }
     else { payload.consentimento = true; payload.email = usuarioAtual.email.toLowerCase(); }
 
-    let res;
-    if (r) res = await sbClient.from('plus_aniversariantes').update(payload).eq('id', r.id);
-    else if (ehAdminEdicao) res = await sbClient.from('plus_aniversariantes').insert(payload);
-    else res = await sbClient.from('plus_aniversariantes').insert(Object.assign({ user_id: usuarioAtual.id }, payload));
+    const gravar = (p) => {
+      if (r) return sbClient.from('plus_aniversariantes').update(p).eq('id', r.id);
+      if (ehAdminEdicao) return sbClient.from('plus_aniversariantes').insert(p);
+      return sbClient.from('plus_aniversariantes').insert(Object.assign({ user_id: usuarioAtual.id }, p));
+    };
+    let res = await gravar(payload);
+    // Banco ainda sem a coluna "cor" (falta rodar o 02_cor_e_aviso_imediato.sql):
+    // salva o resto mesmo assim, só sem a cor.
+    if (res.error && /\bcor\b/.test(res.error.message || '')) {
+      delete payload.cor;
+      res = await gravar(payload);
+      if (!res.error) toast('Salvo, mas sem a cor — peça pra rodar a atualização 02 no Supabase.');
+    }
     if (res.error) throw new Error(res.error.message);
     if (ctx.fotoNova && fotoAntiga) apagarFoto(fotoAntiga);
 
@@ -1279,12 +1559,18 @@ async function excluirPerfil() {
 }
 function ligarPerfil() {
   preencherSelectsData($('perfilDia'), $('perfilMes'));
-  ligarCampoFoto('perfilFotoPreview', 'perfilFotoBtn', 'perfilFotoInput', (foto, erro) => {
+  $('perfilCores').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-cor]');
+    if (!b || !perfilCtx) return;
+    perfilCtx.cor = b.dataset.cor;
+    renderCoresPerfil();
+  });
+  perfilFotoCampo = ligarCampoFoto('perfilFotoPreview', 'perfilFotoBtn', 'perfilFotoInput', 'perfilAjustarBtn', (foto, erro) => {
     if (erro) { setStatus('perfilStatus', erro, 'erro'); return; }
     if (perfilCtx) perfilCtx.fotoNova = foto;
     setStatus('perfilStatus', '');
   });
-  $('perfilNome').addEventListener('input', renderSugestoes);
+  $('perfilNome').addEventListener('input', () => { renderSugestoes(); renderCoresPerfil(); });
   $('perfilSugestoes').addEventListener('click', (e) => {
     const b = e.target.closest('[data-reivindicar]');
     if (b) reivindicar(b.dataset.reivindicar);
@@ -1372,7 +1658,7 @@ function renderMes() {
     const ehHoje = diasEntre(hoje, proximoAniversario(p.dia, p.mes, hoje)) === 0;
     const passou = mesSelecionado === atual && p.dia < hoje.getDate() && !ehHoje;
     return `
-      <div class="pessoa-mes ${passou ? 'passou' : ''}" style="--cor-txt:${corTextoDe(ci)}">
+      <div class="pessoa-mes ${passou ? 'passou' : ''}" style="--cor-txt:${corTextoPessoa(p)}">
         ${ehHoje ? '<span class="tag-hoje">🎂 HOJE</span>' : ''}
         ${fotoAnelHtml(p)}
         <div class="nome">${escapeHtml(p.nome.split(' ')[0])}</div>
@@ -1438,7 +1724,7 @@ async function gerarCartaz() {
   ctx.fillText(MESES[mes - 1].toUpperCase() + ' ' + new Date().getFullYear(), W / 2, 250);
   ctx.fillStyle = '#e91e63';
   ctx.font = '700 128px Fredoka, Segoe UI, sans-serif';
-  ctx.fillText('ANIVERSARIANTES', W / 2, 380, W - 140);
+  ctx.fillText($('cartazTitulo').value || 'ANIVERSARIANTES', W / 2, 380, W - 140);
   // "Tracinhos" de festa em cima do título
   ctx.strokeStyle = '#ff7043'; ctx.lineWidth = 9; ctx.lineCap = 'round';
   [[-44, 150, -30, 180], [0, 138, 0, 172], [44, 150, 30, 180]].forEach(([dx, y1, dx2, y2]) => {
@@ -1464,7 +1750,7 @@ async function gerarCartaz() {
     const cy = offsetY + cellH * linha + raio + 20;
     const ci = indiceCor(p);
     // bolinha colorida atrás
-    ctx.beginPath(); ctx.arc(cx + raio * 0.32, cy + raio * 0.18, raio, 0, Math.PI * 2); ctx.fillStyle = CORES_FESTA[(ci + 2) % 5]; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + raio * 0.32, cy + raio * 0.18, raio, 0, Math.PI * 2); ctx.fillStyle = corDaPessoa(p); ctx.fill();
     // foto
     ctx.save();
     ctx.beginPath(); ctx.arc(cx, cy, raio, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
@@ -1475,7 +1761,7 @@ async function gerarCartaz() {
     ctx.beginPath(); ctx.arc(cx, cy, raio, 0, Math.PI * 2); ctx.lineWidth = 6; ctx.strokeStyle = '#ffffff'; ctx.stroke();
     // nome e data
     const tamNome = Math.max(28, Math.min(54, raio * 0.42));
-    ctx.fillStyle = CORES_TEXTO[ci];
+    ctx.fillStyle = corTextoPessoa(p);
     ctx.font = `700 ${tamNome}px Fredoka, Segoe UI, sans-serif`;
     ctx.fillText(p.nome.split(' ')[0].toUpperCase(), cx, cy + raio + tamNome + 14, cellW - 16);
     ctx.fillStyle = '#7e57c2';
@@ -1756,6 +2042,7 @@ $('mesesChips').addEventListener('click', (e) => {
   renderMes();
 });
 $('gerarCartazBtn').addEventListener('click', gerarCartaz);
+$('cartazTitulo').addEventListener('change', gerarCartaz);
 $('cartazFecharBtn').addEventListener('click', () => $('cartazOverlay').classList.remove('aberto'));
 $('cartazBaixarBtn').addEventListener('click', () => {
   if (!cartazBlob) return;
@@ -1766,6 +2053,7 @@ $('cartazBaixarBtn').addEventListener('click', () => {
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 });
 ligarModoEscuro();
+ligarRecorte();
 ligarPerfil();
 ligarAdmin();
 iniciarAutenticacao();
