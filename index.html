@@ -441,7 +441,10 @@ footer .footer-copy{margin-top:14px;padding-top:10px;border-top:1px solid rgba(2
           <button type="button" class="password-toggle" data-alvo="loginSenha" tabindex="-1" title="Mostrar/ocultar senha">👁</button>
         </div>
         <div class="status-line" id="loginStatusMsg"></div>
-        <div class="actions"><button class="btn" type="submit" id="loginEntrarBtn">Entrar 🎈</button></div>
+        <div class="actions">
+          <button class="btn" type="submit" id="loginEntrarBtn">Entrar 🎈</button>
+          <button class="btn secondary tiny oculto" type="button" id="reenviarConfirmacaoBtn">📧 Reenviar confirmação</button>
+        </div>
         <p class="hint" style="margin:14px 0 0;">Ainda não tem conta? <a href="#" id="loginMostrarCadastro">Criar conta</a></p>
       </form>
 
@@ -979,9 +982,11 @@ function iniciarAutenticacao() {
     $('loginEntrarBtn').disabled = true;
     const { data, error } = await sbClient.auth.signInWithPassword({ email, password: senha });
     $('loginEntrarBtn').disabled = false;
+    $('reenviarConfirmacaoBtn').classList.add('oculto');
     if (error) {
       const naoConfirmado = /confirm/i.test(error.message || '');
-      setStatus('loginStatusMsg', naoConfirmado ? 'Você ainda não confirmou o e-mail — procure o link na sua caixa de entrada.' : 'E-mail ou senha incorretos.', 'erro');
+      setStatus('loginStatusMsg', naoConfirmado ? 'Seu e-mail ainda não foi confirmado. Clique abaixo pra receber um link novo — e clique nele só uma vez.' : 'E-mail ou senha incorretos.', 'erro');
+      if (naoConfirmado) $('reenviarConfirmacaoBtn').classList.remove('oculto');
       return;
     }
     setStatus('loginStatusMsg', '');
@@ -1018,8 +1023,17 @@ function iniciarAutenticacao() {
       setStatus('cadastroStatusMsg', '');
       await liberarApp(data.user);
     } else {
-      setStatus('cadastroStatusMsg', 'Conta criada! 🎉 Confira seu e-mail (' + email + '), clique no link de confirmação e depois entre aqui. Sua foto e data já ficaram guardadas neste computador.', 'ok');
+      setStatus('cadastroStatusMsg', 'Conta criada! 🎉 Confira seu e-mail (' + email + ') e clique no link de confirmação. Se abrir uma página de erro, tudo bem: a conta já fica confirmada. Volte aqui e clique em "Entrar". Sua foto e data ficaram guardadas neste computador.', 'ok');
     }
+  });
+
+  $('reenviarConfirmacaoBtn').addEventListener('click', async () => {
+    const email = $('loginEmail').value.trim();
+    $('reenviarConfirmacaoBtn').disabled = true;
+    const { error } = await sbClient.auth.resend({ type: 'signup', email });
+    $('reenviarConfirmacaoBtn').disabled = false;
+    if (error) { setStatus('loginStatusMsg', 'Não consegui reenviar: ' + error.message, 'erro'); return; }
+    setStatus('loginStatusMsg', 'Link novo enviado pra ' + email + '. Depois de clicar nele (mesmo que abra uma página de erro), volte aqui e entre.', 'ok');
   });
 
   $('sairBtn').addEventListener('click', sair);
