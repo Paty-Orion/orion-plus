@@ -353,6 +353,8 @@ textarea{resize:vertical;min-height:64px;}
 .pessoa-mes .nome{font-family:var(--font-festa);font-weight:600;font-size:17px;text-transform:uppercase;line-height:1.1;color:var(--cor-txt, var(--accent-dark));}
 .pessoa-mes .data{font-family:var(--font-festa);font-weight:600;font-size:16px;color:var(--muted);}
 .pessoa-mes.passou{opacity:.62;}
+.pessoa-mes{cursor:pointer;transition:transform .12s;}
+.pessoa-mes:hover{transform:translateY(-3px);}
 .pessoa-mes .tag-hoje{
   position:absolute;top:-6px;left:50%;transform:translateX(-50%);z-index:3;
   background:var(--festa-amarelo);color:#5c4300;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;white-space:nowrap;
@@ -582,17 +584,19 @@ footer .footer-copy{margin-top:14px;padding-top:10px;border-top:1px solid rgba(2
 <!-- =================== MODAL: CARTAZ DO MÊS =================== -->
 <div class="modal-overlay" id="cartazOverlay">
   <div class="card modal-card largo">
-    <h2>🖼️ Cartaz do mês</h2>
-    <p class="hint">Prontinho pra postar no Teams, mandar por e-mail ou imprimir em A4.</p>
+    <h2 id="cartazModalTitulo">🖼️ Cartaz do mês</h2>
+    <p class="hint" id="cartazModalSub">Prontinho pra postar no Teams, mandar por e-mail ou imprimir em A4.</p>
+    <div id="cartazTituloWrap">
     <label style="margin-top:0;">Título do cartaz</label>
     <select id="cartazTitulo" style="max-width:280px;margin-bottom:12px;">
       <option value="ANIVERSARIANTES">ANIVERSARIANTES</option>
       <option value="FELIZ ANIVERSÁRIO">FELIZ ANIVERSÁRIO</option>
       <option value="PARABÉNS!">PARABÉNS!</option>
     </select>
+    </div>
     <div id="cartazPreviewWrap" style="text-align:center;"><p class="hint">Gerando...</p></div>
     <div class="actions">
-      <button class="btn" type="button" id="cartazBaixarBtn" disabled>⬇️ Baixar PNG</button>
+      <button class="btn" type="button" id="cartazBaixarBtn" disabled>⬇️ Baixar imagem</button>
       <button class="btn secondary" type="button" id="cartazFecharBtn">Fechar</button>
     </div>
   </div>
@@ -692,6 +696,7 @@ footer .footer-copy{margin-top:14px;padding-top:10px;border-top:1px solid rgba(2
       <div class="actions" style="margin-top:0;margin-bottom:12px;">
         <input type="search" id="adminBusca" placeholder="Buscar por nome ou e-mail..." style="max-width:320px;">
         <button class="btn tiny" type="button" id="adminNovoBtn">+ Adicionar pessoa</button>
+        <button class="btn secondary tiny" type="button" id="adminCartoesBtn" title="Cria o cartão Feliz Aniversário de quem ainda não tem (usado no post do Teams)">🖼️ Gerar cartões que faltam</button>
         <span class="hint" style="margin:0;" id="adminContagem"></span>
       </div>
       <div class="tabela-scroll">
@@ -932,12 +937,121 @@ function fotoUrl(p) {
 function fotoAnelHtml(p, extraStyle) {
   return `<div class="foto-anel" style="--cor:${corDaPessoa(p)};${extraStyle || ''}"><img src="${escapeHtml(fotoUrl(p))}" alt="${escapeHtml(p.nome)}" loading="lazy"></div>`;
 }
-async function enviarFoto(blob) {
+async function enviarFoto(blob, pasta) {
   const id = (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
-  const path = id + '.jpg';
+  const path = (pasta ? pasta + '/' : '') + id + '.jpg';
   const { error } = await sbClient.storage.from(BUCKET_FOTOS).upload(path, blob, { contentType: 'image/jpeg', cacheControl: '31536000' });
   if (error) throw new Error('Não consegui enviar a foto: ' + error.message);
   return path;
+}
+/* ---------- Cartão individual "Feliz Aniversário" ----------
+   Desenhado aqui no navegador (o Supabase não sabe desenhar imagem) toda
+   vez que o cadastro é salvo, e guardado em plus-fotos/cartoes/. No dia do
+   aniversário o post do Teams mostra esse cartão. Não tem ano escrito,
+   então o mesmo cartão serve todo ano até a pessoa mudar algo. */
+function aleatorioComSemente(texto) {
+  let h = 1779033703;
+  for (let i = 0; i < texto.length; i++) h = Math.imul(h ^ texto.charCodeAt(i), 3432918353), h = (h << 13) | (h >>> 19);
+  return () => { h = Math.imul(h ^ (h >>> 16), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return ((h ^= h >>> 16) >>> 0) / 4294967296; };
+}
+// dados = { id, nome, dia, mes, cor, fotoSrc }. Devolve { blob, dataUrl } (JPEG 1080x1350).
+async function desenharCartaoIndividual(dados) {
+  try { await document.fonts.load('700 80px Fredoka'); await document.fonts.load('600 40px Fredoka'); } catch (e) { /* fonte padrão */ }
+  const W = 1080, H = 1350;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  const rnd = aleatorioComSemente(String(dados.id || dados.nome));
+  const cor = dados.cor || CORES_FESTA[0];
+  const corTxt = corTextoDaCor(cor);
+
+  ctx.fillStyle = '#fdf6f9';
+  ctx.fillRect(0, 0, W, H);
+  // Bolas grandes nas bordas
+  [[40, 170, 140, 0], [300, -10, 110, 2], [900, 20, 130, 4], [1080, 300, 120, 3], [1090, 900, 130, 0],
+   [-10, 1000, 130, 3], [220, 1360, 140, 1], [930, 1340, 150, 4]].forEach(([x, y, r, ci]) => {
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = CORES_FESTA[ci]; ctx.fill();
+  });
+  // Confete
+  for (let i = 0; i < 70; i++) {
+    const x = rnd() * W, y = 250 + rnd() * 900;
+    const dentroDaFoto = Math.hypot(x - W / 2, y - 640) < 330;
+    if (dentroDaFoto) continue;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rnd() * Math.PI);
+    ctx.fillStyle = CORES_FESTA[Math.floor(rnd() * CORES_FESTA.length)];
+    if (rnd() < 0.5) ctx.fillRect(-7, -3, 14, 6); else { ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill(); }
+    ctx.restore();
+  }
+  desenharBalao(ctx, 140, 420, 52, CORES_FESTA[1]);
+  desenharBalao(ctx, 215, 500, 40, CORES_FESTA[3]);
+  desenharBalao(ctx, 945, 440, 56, CORES_FESTA[2]);
+
+  // Título
+  ctx.textAlign = 'center';
+  ctx.strokeStyle = '#ff7043'; ctx.lineWidth = 9; ctx.lineCap = 'round';
+  [[-44, 88, -30, 118], [0, 76, 0, 110], [44, 88, 30, 118]].forEach(([dx, y1, dx2, y2]) => {
+    ctx.beginPath(); ctx.moveTo(W / 2 + dx, y1); ctx.lineTo(W / 2 + dx2, y2); ctx.stroke();
+  });
+  ctx.fillStyle = '#e91e63';
+  ctx.font = '700 118px Fredoka, Segoe UI, sans-serif';
+  ctx.fillText('FELIZ', W / 2, 235, W - 120);
+  ctx.fillText('ANIVERSÁRIO!', W / 2, 350, W - 120);
+
+  // Foto com a bolinha da cor escolhida
+  const cx = W / 2, cy = 690, raio = 250;
+  ctx.beginPath(); ctx.arc(cx + raio * 0.3, cy + raio * 0.17, raio, 0, Math.PI * 2); ctx.fillStyle = cor; ctx.fill();
+  let img;
+  try { img = await carregarImagem(dados.fotoSrc); } catch (e) { img = await carregarImagem(avatarIniciais(dados.nome, cor)); }
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, raio, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
+  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height, lado = Math.min(iw, ih);
+  ctx.drawImage(img, (iw - lado) / 2, (ih - lado) / 2, lado, lado, cx - raio, cy - raio, raio * 2, raio * 2);
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(cx, cy, raio, 0, Math.PI * 2); ctx.lineWidth = 12; ctx.strokeStyle = '#ffffff'; ctx.stroke();
+
+  // Nome e data
+  const nome = String(dados.nome || '').trim();
+  const partes = nome.split(/\s+/);
+  const nomeCartao = (nome.length <= 16 ? nome : partes.slice(0, 2).join(' ').length <= 16 ? partes.slice(0, 2).join(' ') : partes[0]).toUpperCase();
+  ctx.fillStyle = corTxt;
+  ctx.font = '700 92px Fredoka, Segoe UI, sans-serif';
+  ctx.fillText(nomeCartao, W / 2, 1055, W - 120);
+  ctx.fillStyle = '#7e57c2';
+  ctx.font = '600 62px Fredoka, Segoe UI, sans-serif';
+  ctx.fillText('🎂 ' + fmtDiaMes(dados.dia, dados.mes), W / 2, 1140);
+  ctx.fillStyle = '#ad1457';
+  ctx.font = '600 34px Fredoka, Segoe UI, sans-serif';
+  ctx.fillText('Com carinho, toda a equipe Orion 💖', W / 2, 1225, W - 160);
+  ctx.fillStyle = '#c9a5b9';
+  ctx.font = '600 26px Fredoka, Segoe UI, sans-serif';
+  ctx.fillText('Orion PLuS · mais um ano pra celebrar', W / 2, 1275);
+
+  const dataUrl = c.toDataURL('image/jpeg', 0.9);
+  return { blob: dataUrlParaBlob(dataUrl), dataUrl };
+}
+// Desenha e sobe o cartão. Nunca derruba quem chamou: se falhar, devolve null.
+async function gerarESubirCartao(dados) {
+  try {
+    const cartao = await desenharCartaoIndividual(dados);
+    return await enviarFoto(cartao.blob, 'cartoes');
+  } catch (e) {
+    console.error('Cartão individual não gerado:', e);
+    return null;
+  }
+}
+// Grava na tabela; se o banco ainda não tem alguma coluna nova (cor,
+// cartao_path — falta rodar a atualização), tira essa coluna e tenta de novo.
+async function gravarComColunasOpcionais(gravar, payload) {
+  let res = await gravar(payload);
+  for (let i = 0; i < 3 && res.error; i++) {
+    const m = String(res.error.message || '').match(/'(cor|cartao_path)' column|column [\w.]*?(cor|cartao_path)\b/);
+    const col = m && (m[1] || m[2]);
+    if (!col || !(col in payload)) break;
+    delete payload[col];
+    console.warn('Banco sem a coluna ' + col + ' — rode a atualização do Supabase.');
+    res = await gravar(payload);
+  }
+  return res;
 }
 async function apagarFoto(path) {
   if (!path || !sbClient) return;
@@ -1349,6 +1463,7 @@ async function liberarApp(user) {
   renderTudo();
 
   if (!meuRegistro || !meuRegistro.foto_path) await cadastroObrigatorio();
+  else garantirCartao(meuRegistro); // em segundo plano, pra quem se cadastrou antes do cartão existir
 }
 function atualizarTagUsuario() {
   const nome = (meuRegistro && meuRegistro.nome) || nomeConta || (usuarioAtual && usuarioAtual.email) || '';
@@ -1374,10 +1489,13 @@ async function cadastroObrigatorio() {
     try {
       const blob = dataUrlParaBlob(pend.fotoDataUrl);
       const foto_path = await enviarFoto(blob);
-      const { error } = await sbClient.from('plus_aniversariantes').insert({
+      const cartao_path = await gerarESubirCartao({ id: pend.nome, nome: pend.nome, dia: pend.dia, mes: pend.mes, fotoSrc: pend.fotoDataUrl });
+      const novo = {
         user_id: usuarioAtual.id, nome: pend.nome, email: usuarioAtual.email.toLowerCase(),
         dia: pend.dia, mes: pend.mes, foto_path, consentimento: true,
-      });
+      };
+      if (cartao_path) novo.cartao_path = cartao_path;
+      const { error } = await gravarComColunasOpcionais((p) => sbClient.from('plus_aniversariantes').insert(p), novo);
       if (!error) {
         limparCadastroPendente();
         await carregarPessoas();
@@ -1519,16 +1637,21 @@ async function salvarPerfil() {
       if (ehAdminEdicao) return sbClient.from('plus_aniversariantes').insert(p);
       return sbClient.from('plus_aniversariantes').insert(Object.assign({ user_id: usuarioAtual.id }, p));
     };
-    let res = await gravar(payload);
-    // Banco ainda sem a coluna "cor" (falta rodar o 02_cor_e_aviso_imediato.sql):
-    // salva o resto mesmo assim, só sem a cor.
-    if (res.error && /\bcor\b/.test(res.error.message || '')) {
-      delete payload.cor;
-      res = await gravar(payload);
-      if (!res.error) toast('Salvo, mas sem a cor — peça pra rodar a atualização 02 no Supabase.');
-    }
-    if (res.error) throw new Error(res.error.message);
+    // Cartão "Feliz Aniversário" com os dados novos (vai no post do Teams)
+    setStatus('perfilStatus', 'Preparando seu cartão de aniversário... 🎨');
+    const cartaoAntigo = r ? r.cartao_path : null;
+    const cartao_path = await gerarESubirCartao({
+      id: r ? r.id : nome, nome, dia, mes, cor: ctx.cor,
+      fotoSrc: ctx.fotoNova ? ctx.fotoNova.dataUrl : fotoUrl(r),
+    });
+    if (cartao_path) payload.cartao_path = cartao_path;
+    setStatus('perfilStatus', 'Salvando...');
+
+    const res = await gravarComColunasOpcionais(gravar, payload);
+    if (res.error) { if (cartao_path) apagarFoto(cartao_path); throw new Error(res.error.message); }
     if (ctx.fotoNova && fotoAntiga) apagarFoto(fotoAntiga);
+    if (payload.cartao_path && cartaoAntigo) apagarFoto(cartaoAntigo);
+    if (cartao_path && !payload.cartao_path) apagarFoto(cartao_path); // banco sem a coluna: não guarda
 
     const eraObrigatorio = ctx.modo === 'obrigatorio';
     if (!ehAdminEdicao) limparCadastroPendente();
@@ -1611,6 +1734,7 @@ function renderHoje() {
             ${fotoAnelHtml(p)}
             <div class="nome">${escapeHtml(p.nome)}</div>
             <div class="sub">${fmtDiaMes(p.dia, p.mes)} · Dê os parabéns no grupo do Teams! 💖</div>
+            <button class="btn secondary tiny" type="button" data-cartao="${escapeHtml(p.id)}" style="margin-top:8px;">🖼️ Ver cartão</button>
           </div>`).join('')}
       </div>`;
     if (!confeteJaSoltou) { confeteJaSoltou = true; setTimeout(() => soltarConfete(souEu ? 6000 : 3500), 400); }
@@ -1658,7 +1782,7 @@ function renderMes() {
     const ehHoje = diasEntre(hoje, proximoAniversario(p.dia, p.mes, hoje)) === 0;
     const passou = mesSelecionado === atual && p.dia < hoje.getDate() && !ehHoje;
     return `
-      <div class="pessoa-mes ${passou ? 'passou' : ''}" style="--cor-txt:${corTextoPessoa(p)}">
+      <div class="pessoa-mes ${passou ? 'passou' : ''}" style="--cor-txt:${corTextoPessoa(p)}" data-cartao="${escapeHtml(p.id)}" title="Ver o cartão de aniversário">
         ${ehHoje ? '<span class="tag-hoje">🎂 HOJE</span>' : ''}
         ${fotoAnelHtml(p)}
         <div class="nome">${escapeHtml(p.nome.split(' ')[0])}</div>
@@ -1685,7 +1809,7 @@ function renderMeu() {
       <div>🎂 ${fmtDiaMes(meuRegistro.dia, meuRegistro.mes)} — ${faltam === 0 ? 'é hoje!! 🥳' : 'faltam ' + faltam + ' dia' + (faltam > 1 ? 's' : '')}</div>
       <div>${escapeHtml(meuRegistro.email || '')}</div>
     </div>
-    <button class="btn secondary" type="button" id="meuEditarBtn">✏️ Editar</button>`;
+    <div class="actions" style="margin-top:0;"><button class="btn secondary" type="button" id="meuEditarBtn">✏️ Editar</button><button class="btn secondary" type="button" data-cartao="${escapeHtml(meuRegistro.id)}">🖼️ Meu cartão</button></div>`;
   $('meuEditarBtn').addEventListener('click', () => abrirPerfil({ modo: 'meu', registro: meuRegistro }));
 }
 
@@ -1693,11 +1817,62 @@ function renderMeu() {
    CARTAZ DO MÊS (PNG em tamanho A4, no estilo do cartaz antigo)
    ============================================================ */
 let cartazBlob = null;
+let cartazNomeArquivo = 'cartaz.png';
+
+// Mostra o cartão individual de uma pessoa (o mesmo que vai no Teams).
+async function abrirCartaoIndividual(p) {
+  if (!p) return;
+  cartazBlob = null;
+  $('cartazModalTitulo').textContent = '🎂 Cartão de aniversário';
+  $('cartazModalSub').textContent = 'É este cartão que vai no chat do Teams no dia do aniversário de ' + primeiroNomeExibicao(p.nome) + '.';
+  $('cartazTituloWrap').classList.add('oculto');
+  $('cartazBaixarBtn').disabled = true;
+  $('cartazPreviewWrap').innerHTML = '<p class="hint">Desenhando o cartão... 🎨</p>';
+  $('cartazOverlay').classList.add('aberto');
+  try {
+    const cartao = await desenharCartaoIndividual({ id: p.id, nome: p.nome, dia: p.dia, mes: p.mes, cor: corDaPessoa(p), fotoSrc: fotoUrl(p) });
+    cartazBlob = cartao.blob;
+    cartazNomeArquivo = 'feliz-aniversario-' + normalizar(primeiroNomeExibicao(p.nome)) + '.jpg';
+    $('cartazPreviewWrap').innerHTML = `<img src="${cartao.dataUrl}" alt="Cartão" style="max-width:100%;max-height:62vh;border-radius:10px;border:1px solid var(--border);">`;
+    $('cartazBaixarBtn').disabled = false;
+  } catch (e) {
+    $('cartazPreviewWrap').innerHTML = '<p class="status-line erro">Não consegui desenhar o cartão: ' + escapeHtml(e.message) + '</p>';
+  }
+}
+
+// Quem se cadastrou antes do cartão existir ganha o seu (em segundo plano).
+async function garantirCartao(p) {
+  if (DEMO || !p || p.cartao_path || !p.foto_path) return false;
+  const path = await gerarESubirCartao({ id: p.id, nome: p.nome, dia: p.dia, mes: p.mes, cor: corDaPessoa(p), fotoSrc: fotoUrl(p) });
+  if (!path) return false;
+  const { error } = await sbClient.from('plus_aniversariantes').update({ cartao_path: path }).eq('id', p.id);
+  if (error) { apagarFoto(path); return false; }
+  p.cartao_path = path;
+  return true;
+}
+async function gerarCartoesQueFaltam() {
+  const faltando = ativos().filter((p) => !p.cartao_path && p.foto_path);
+  if (!faltando.length) { toast('Todo mundo já tem cartão ✅'); return; }
+  $('adminCartoesBtn').disabled = true;
+  let ok = 0;
+  for (let i = 0; i < faltando.length; i++) {
+    $('adminCartoesBtn').textContent = `🖼️ Gerando ${i + 1} de ${faltando.length}...`;
+    if (await garantirCartao(faltando[i])) ok++;
+  }
+  $('adminCartoesBtn').disabled = false;
+  $('adminCartoesBtn').textContent = '🖼️ Gerar cartões que faltam';
+  toast(ok === faltando.length ? ok + ' cartão(ões) gerado(s) 🎉' : ok + ' de ' + faltando.length + ' gerados. Rodou a atualização 04 no Supabase?');
+}
+
 async function gerarCartaz() {
   const mes = mesSelecionado;
   const lista = ativos().filter((p) => p.mes === mes).sort((a, b) => a.dia - b.dia || a.nome.localeCompare(b.nome));
   if (!lista.length) return;
   cartazBlob = null;
+  $('cartazModalTitulo').textContent = '🖼️ Cartaz do mês';
+  $('cartazModalSub').textContent = 'Prontinho pra postar no Teams, mandar por e-mail ou imprimir em A4.';
+  $('cartazTituloWrap').classList.remove('oculto');
+  cartazNomeArquivo = 'aniversariantes-' + MESES[mes - 1].toLowerCase() + '-' + new Date().getFullYear() + '.png';
   $('cartazBaixarBtn').disabled = true;
   $('cartazPreviewWrap').innerHTML = '<p class="hint">Gerando o cartaz... 🎨</p>';
   $('cartazOverlay').classList.add('aberto');
@@ -1871,7 +2046,11 @@ async function executarImportacao() {
     setStatus('importarStatus', `Enviando ${ok + falhas.length + 1} de ${itens.length}...`);
     try {
       const foto_path = await enviarFoto(it.foto.blob);
-      const { error } = await sbClient.from('plus_aniversariantes').insert({ nome: capitalizarNome(it.nome), dia: Number(it.dia), mes: Number(it.mes), foto_path });
+      const nomeImp = capitalizarNome(it.nome);
+      const novo = { nome: nomeImp, dia: Number(it.dia), mes: Number(it.mes), foto_path };
+      const cartao_path = await gerarESubirCartao({ id: nomeImp, nome: nomeImp, dia: novo.dia, mes: novo.mes, fotoSrc: it.foto.dataUrl });
+      if (cartao_path) novo.cartao_path = cartao_path;
+      const { error } = await gravarComColunasOpcionais((p) => sbClient.from('plus_aniversariantes').insert(p), novo);
       if (error) { apagarFoto(foto_path); throw new Error(error.message); }
       it.importado = true;
       ok++;
@@ -2042,13 +2221,20 @@ $('mesesChips').addEventListener('click', (e) => {
   renderMes();
 });
 $('gerarCartazBtn').addEventListener('click', gerarCartaz);
+// Qualquer botão/foto com data-cartao abre o cartão individual daquela pessoa
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-cartao]');
+  if (!el) return;
+  abrirCartaoIndividual(pessoas.find((p) => String(p.id) === el.dataset.cartao));
+});
+$('adminCartoesBtn').addEventListener('click', gerarCartoesQueFaltam);
 $('cartazTitulo').addEventListener('change', gerarCartaz);
 $('cartazFecharBtn').addEventListener('click', () => $('cartazOverlay').classList.remove('aberto'));
 $('cartazBaixarBtn').addEventListener('click', () => {
   if (!cartazBlob) return;
   const a = document.createElement('a');
   a.href = URL.createObjectURL(cartazBlob);
-  a.download = 'aniversariantes-' + MESES[mesSelecionado - 1].toLowerCase() + '-' + new Date().getFullYear() + '.png';
+  a.download = cartazNomeArquivo;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 });

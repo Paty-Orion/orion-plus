@@ -27,6 +27,11 @@ Depois rode também o **`supabase/02_cor_e_aviso_imediato.sql`**, do mesmo jeito
 
 E rode o **`supabase/03_aviso_para_quem_chegou_depois.sql`**. Com ele, quem entra no PLuS depois que um aviso já saiu recebe esse aviso só pra ela, desde que o aniversário ainda não tenha chegado. Quem já estava na lista quando o aviso saiu não recebe de novo.
 
+E rode o **`supabase/04_cartao_individual.sql`**. Com ele, o post do Teams no dia mostra o **cartão "Feliz Aniversário"** da pessoa no lugar da foto simples.
+- O site desenha e guarda o cartão sempre que alguém salva o cadastro.
+- Quem já estava cadastrado ganha o cartão sozinho no próximo acesso.
+- Também dá pra gerar os que faltarem em **Administração → Pessoas → 🖼️ Gerar cartões que faltam**.
+
 ### E-mail de confirmação com código
 
 O PLuS confirma o e-mail da conta nova com um **código de 6 números**, digitado na própria tela. Assim não depende do link, que dá erro porque o site é aberto como arquivo. Para o código aparecer no e-mail:
