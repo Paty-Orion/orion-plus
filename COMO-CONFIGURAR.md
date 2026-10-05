@@ -32,6 +32,8 @@ E rode o **`supabase/04_cartao_individual.sql`**. Com ele, o post do Teams no di
 - Quem já estava cadastrado ganha o cartão sozinho no próximo acesso.
 - Também dá pra gerar os que faltarem em **Administração → Pessoas → 🖼️ Gerar cartões que faltam**.
 
+E rode o **`supabase/05_parabens_fim_de_semana_na_sexta.sql`**. Com ele, aniversário no sábado ou domingo ganha o parabéns no Teams na **sexta anterior, às 8h**, com o texto "Neste domingo (11/10) é dia de festa!".
+
 ### E-mail de confirmação com código
 
 O PLuS confirma o e-mail da conta nova com um **código de 6 números**, digitado na própria tela. Assim não depende do link, que dá erro porque o site é aberto como arquivo. Para o código aparecer no e-mail:
