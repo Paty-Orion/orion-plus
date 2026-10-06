@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="2026-09-28.1">
+<meta name="app-version" content="2026-10-06.1">
 <title>Orion PLuS — Aniversariantes da Orion</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%88%3C/text%3E%3C/svg%3E">
 <script>
@@ -420,6 +420,30 @@ footer .footer-copy{margin-top:14px;padding-top:10px;border-top:1px solid rgba(2
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .demo-aviso{background:var(--festa-amarelo);color:#5c4300;text-align:center;font-size:12.5px;font-weight:700;padding:6px;}
 .oculto{display:none !important;}
+
+/* =====================================================================
+   TELA CHEIA / SEM BLOCOS  (visual aprovado no protótipo)
+   ===================================================================== */
+:root{--gutter:clamp(16px,3.5vw,56px);}
+.wrap{max-width:none;margin:0;padding:0;}
+.top-banner{border:0;border-radius:0;margin-bottom:0;}
+.banner-top{padding-left:var(--gutter);padding-right:var(--gutter);}
+.hero{padding-left:var(--gutter);padding-right:var(--gutter);}
+.hero-art{right:var(--gutter);}
+.conteudo{padding:28px var(--gutter) 0;}
+.conteudo .card{background:none;border:0;border-radius:0;box-shadow:none;padding:0;margin:0;}
+.conteudo .card + .card{border-top:1px solid var(--border);margin-top:32px;padding-top:28px;}
+.conteudo .hoje-card{background:none;border:0;}
+.foto-anel img{border-color:var(--bg);}
+.proximo{background:none;border:0;border-radius:0;padding:6px 4px 4px;}
+.tabela-scroll{border:0;border-radius:0;}
+.tabela th{background:none;border-bottom:2px solid var(--border);}
+.note{background:none;border:0;border-left:3px solid var(--pink-mid);border-radius:0;padding:4px 0 4px 12px;}
+.dropzone{background:none;}
+.dropzone:hover,.dropzone.drag{background:var(--pink-soft);}
+footer.site-footer{border-radius:0;margin:40px 0 0;padding:24px var(--gutter) 18px;}
+[data-theme="dark"] .banner-top{background:var(--orion-purple-dark);}
+@media (max-width:760px){.hero-art{right:0;}}
 </style>
 </head>
 <body>
@@ -658,6 +682,7 @@ footer .footer-copy{margin-top:14px;padding-top:10px;border-top:1px solid rgba(2
     </div>
   </div>
 
+  <main class="conteudo">
   <div class="card oculto" id="erroBancoCard" style="border-color:var(--danger);">
     <h2>⚠️ Banco de dados ainda não configurado</h2>
     <p class="hint" id="erroBancoMsg">As tabelas do Orion PLuS ainda não existem no Supabase. Alguém com acesso ao Supabase precisa rodar o arquivo <b>supabase/01_estrutura.sql</b> (ver o COMO-CONFIGURAR.md).</p>
@@ -766,6 +791,8 @@ footer .footer-copy{margin-top:14px;padding-top:10px;border-top:1px solid rgba(2
       <div id="enviosLista" class="hint">—</div>
     </div>
   </div>
+
+  </main>
 
   <footer class="site-footer">
     <div class="footer-marca">Orion PL<span>u</span>S 🎈</div>
